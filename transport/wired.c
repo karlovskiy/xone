@@ -47,10 +47,14 @@ struct xone_wired {
 	struct gip_adapter *adapter;
 };
 
+/* State tracking: 0 = Unknown, 1 = Connected (0x0E), 2 = Disconnected (0x64) */
+static int xone_headset_state = 0;
+
 static void xone_wired_complete_data_in(struct urb *urb)
 {
 	struct xone_wired *wired = urb->context;
 	struct device *dev = wired->data_port.dev;
+	unsigned char *data = urb->transfer_buffer;
 	int err;
 
 	switch (urb->status) {
@@ -67,12 +71,39 @@ static void xone_wired_complete_data_in(struct urb *urb)
 	if (!urb->actual_length)
 		goto resubmit;
 
-	err = gip_process_buffer(wired->adapter, urb->transfer_buffer,
-				 urb->actual_length);
+	dev_dbg(dev, "xone-wired packet: %*ph\n", urb->actual_length, data);
+
+	/* Check Header: 08 20 (Input) and 05 (Wireless Active) */
+	if (urb->actual_length >= 9
+		&& data[0] == 0x08
+		&& data[1] == 0x20
+		&& data[5] == 0x05) {
+		int new_state;
+		/* 6th byte is a volume, reserve 100 (0x64) for disconnect */
+		if (data[6] == 0x64) {
+			new_state = 2;
+		} else {
+			new_state = 1;
+		}
+		if (new_state != xone_headset_state) {
+			char *envp[2] = { NULL, NULL };
+			if (new_state == 1) {
+				dev_info(dev, "%s: headset CONNECTED. Sending udev event.\n", __func__);
+				envp[0] = "HEADSET_STATE=CONNECTED";
+			} else {
+				dev_info(dev, "%s: headset DISCONNECTED. Sending udev event.\n", __func__);
+				envp[0] = "HEADSET_STATE=DISCONNECTED";
+			}
+			kobject_uevent_env(&dev->kobj, KOBJ_CHANGE, envp);
+			xone_headset_state = new_state;
+		}
+	}
+
+	err = gip_process_buffer(wired->adapter, data, urb->actual_length);
 	if (err) {
 		dev_err(dev, "%s: process failed: %d\n", __func__, err);
 		print_hex_dump_bytes("xone-wired packet: ", DUMP_PREFIX_NONE,
-				     urb->transfer_buffer, urb->actual_length);
+				     data, urb->actual_length);
 	}
 
 resubmit:

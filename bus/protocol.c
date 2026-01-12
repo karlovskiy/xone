@@ -1531,9 +1531,11 @@ static int gip_handle_pkt_audio_samples(struct gip_client *client,
 		return -EBUSY;
 
 	out->flow_rate = le16_to_cpu(pkt->flow_rate);
-	if (out->flow_rate != out->buffer_size)
-		gip_dbg(client, "%s: Unusual flow rate control -> %u", __func__, out->flow_rate);
-
+	// skip messy debug output for PDP vendor
+	if (client->hardware.vendor != 0x0e6f) {
+		if (out->flow_rate != out->buffer_size)
+			gip_dbg(client, "%s: Unusual flow rate control -> %u", __func__, out->flow_rate);
+	}
 	if (client->drv && client->drv->ops.audio_samples)
 		err = client->drv->ops.audio_samples(client, pkt->samples,
 						     len - sizeof(*pkt));

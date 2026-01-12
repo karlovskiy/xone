@@ -453,6 +453,11 @@ static int gip_headset_op_battery(struct gip_client *client,
 static int gip_headset_op_authenticate(struct gip_client *client,
 				       void *data, u32 len)
 {
+	/* Skip the crashing authentication for PDP vendor. */
+	if (client->hardware.vendor == 0x0e6f) {
+		dev_info(&client->dev, "%s: Skipping authentication for PDP Headset to prevent possible crash.\n", __func__);
+		return 0;
+	}
 	struct gip_headset *headset = dev_get_drvdata(&client->dev);
 
 	return gip_auth_process_pkt(&headset->auth, data, len);
