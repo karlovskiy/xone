@@ -12,6 +12,30 @@
 
 **NOTE**: This is a fork, please support the upstream project.
 
+## 🎧 PDP LVL50 Wireless Support & Udev Events
+
+This fork includes a custom implementation for the **PDP LVL50 Wireless Headset** (and potentially other PDP Dongle-based devices) which use non-standard connection signaling.
+
+### New Udev Property: `HEADSET_STATE`
+Unlike the standard driver, which relies on the wireless dongle's USB descriptor state (which is often static), this driver analyzes the proprietary data packet stream to detect the *actual* connection status of the headset.
+
+It exposes a new environment variable to udev that you can use for automation:
+
+* `HEADSET_STATE=CONNECTED`
+* `HEADSET_STATE=DISCONNECTED`
+
+### Automation Example
+You can use this event to automatically switch audio profiles (e.g., via Pipewire/PulseAudio) or execute scripts when you turn the headset on or off.
+
+**Example Udev Rule:**
+Create a file at `/etc/udev/rules.d/99-xone-headset.rules`:
+
+```bash
+# Detect PDP Headset state change and trigger a script
+ACTION=="change", SUBSYSTEM=="input", ENV{HEADSET_STATE}=="CONNECTED", RUN+="/usr/bin/switch-sound.sh on"
+ACTION=="change", SUBSYSTEM=="input", ENV{HEADSET_STATE}=="DISCONNECTED", RUN+="/usr/bin/switch-sound.sh off"
+```
+
 ## Compatibility
 
 - [x] Wired devices (via USB)
