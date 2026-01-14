@@ -1,15 +1,16 @@
-KVERSION := $(shell uname -r)
-KDIR := /lib/modules/${KVERSION}/build
-MAKEFLAGS+="-j $(shell nproc)"
+KERNEL_DIR ?= /lib/modules/$(shell uname -r)/build
+ifeq ($(findstring j,$(MAKEFLAGS)),)
+	MAKEFLAGS += -j$(shell nproc)
+endif
 
 default: clean
-	$(MAKE) -C $(KDIR) M=$$PWD
+	$(MAKE) -C $(KERNEL_DIR) M=$$PWD
 
 debug: clean
-	$(MAKE) -C $(KDIR) M=$$PWD ccflags-y="-Og -g3 -DDEBUG"
+	$(MAKE) -C $(KERNEL_DIR) M=$$PWD ccflags-y="-Og -g3 -DDEBUG"
 
 clean:
-	$(MAKE) -C $(KDIR) M=$$PWD clean
+	$(MAKE) -C $(KERNEL_DIR) M=$$PWD clean
 
 unload:
 	./modules_load.sh unload
